@@ -1,0 +1,31 @@
+############################################################
+##
+## Read up on parameters on
+## https://docs.prylabs.network/docs/prysm-usage/parameters/
+##
+############################################################
+
+##############
+# Connectivity
+beacon-rpc-provider: haproxy:14000
+
+grpc-retries: 18446744073709551615
+
+monitoring-host: 0.0.0.0
+monitoring-port: 8580
+
+enable-local-protection: yes
+datadir: /data/db
+
+enable-external-slasher-protection: yes
+slasher-rpc-provider: haproxy:14002
+
+#####################################
+# Validator accounts & key management
+disable-accounts-v2: yes
+keymanager: wallet
+keymanageropts: /data/keystoreWallet.json
+
+###########
+# Fun Stuff
+graffiti: ""

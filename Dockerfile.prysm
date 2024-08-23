@@ -1,0 +1,42 @@
+# Dockerfile.prysm
+FROM debian:stable-slim
+
+WORKDIR /app/devnet
+
+# Install necessary packages
+RUN apt-get update \
+    && apt-get install -y \
+    curl \
+    tar \
+    libc6 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Binaries installation
+ENV PRYSMCTL_URL=https://github.com/prysmaticlabs/prysm/releases/download/v5.0.4/prysmctl-v5.0.4-linux-amd64 \
+    BEACON_CHAIN_URL=https://github.com/prysmaticlabs/prysm/releases/download/v2.1.0/beacon-chain-v2.1.0-linux-amd64 \
+    VALIDATOR_URL=https://github.com/prysmaticlabs/prysm/releases/download/v2.1.0/validator-v2.1.0-linux-amd64 \
+    PRYSMCTL_BIN=/usr/local/bin/prysmctl \
+    BEACON_CHAIN_BIN=/usr/local/bin/beacon-chain \
+    VALIDATOR_BIN=/usr/local/bin/validator
+
+RUN curl -Lo ${PRYSMCTL_BIN} ${PRYSMCTL_URL} \
+    && curl -Lo ${BEACON_CHAIN_BIN} ${BEACON_CHAIN_URL} \
+    && curl -Lo ${VALIDATOR_BIN} ${VALIDATOR_URL} \
+    && chmod +x ${PRYSMCTL_BIN} ${BEACON_CHAIN_BIN} ${VALIDATOR_BIN}
+
+# # Copy the configuration files
+# COPY genesis.json config.yml jwt.hex ./
+
+# # Generate the genesis.ssz file
+# RUN prysmctl testnet generate-genesis \
+#     --fork deneb \
+#     --num-validators 64 \
+#     --chain-config-file config.yml \
+#     --output-ssz genesis.ssz || (echo "Failed to generate genesis.ssz" && exit 1)
+
+# Expose necessary ports
+EXPOSE 13000 4000
+
+# Default command
+ENTRYPOINT [ "prysmctl" ]

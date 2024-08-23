@@ -1,0 +1,10 @@
+#!/usr/bin/expect
+
+set timeout -1
+
+spawn wallet create --accept-terms-of-use --goerli --wallet-dir=/data/wallets --wallet-password-file=/data/passwords/wallet-password --keymanager-kind=derived
+
+expect "Enter how many accounts you would like to generate from the mnemonic:"
+send -- "1\r"
+
+expect eof

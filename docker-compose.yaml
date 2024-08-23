@@ -1,0 +1,158 @@
+version: "3.7"
+
+services:
+  geth:
+    container_name: geth
+    image: ethereum/client-go:v1.13.14
+    restart: always
+    hostname: geth
+    command: >
+      --goerli
+      --http
+      --http.port=8546
+      --http.addr=0.0.0.0
+      --http.api="db,eth,net,web3,personal"
+      --http.corsdomain "*"
+    ports:
+      - 30303:30303/tcp
+      - 30303:30303/udp
+      - 8546:8546
+    volumes:
+      - ./geth:/root/.ethereum
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8546"]
+      interval: 30s
+      retries: 3
+      start_period: 30s
+      timeout: 10s
+
+  prysmctl:
+    container_name: prysmctl
+    build:
+      context: .
+      dockerfile: Dockerfile.prysm
+    command: >
+      testnet generate-genesis
+      --fork deneb
+      --num-validators 64
+      --genesis-time-delay 90
+      --chain-config-file=/config/uchain/config.yml
+      --geth-genesis-json-in=/config/uchain/genesis.json
+      --geth-genesis-json-out=/config/uchain/genesis.json
+      --output-ssz=/config/uchain/genesis.ssz
+    volumes:
+      - ./config:/config
+
+  # beacon:
+  #   container_name: beacon-chain
+  #   image: gcr.io/prysmaticlabs/prysm/beacon-chain:stable
+  #   restart: always
+  #   hostname: beacon-chain
+  #   depends_on:
+  #     - geth
+  #     - prysmctl
+  #   command: >
+  #     --accept-terms-of-use
+  #     --config-file=/config/beacon.yaml
+  #     --genesis-state=/config/uchain/genesis.ssz
+  #   environment:
+  #     - EXECUTION_ENDPOINT=http://geth:8546
+  #   ports:
+  #     - 4000:4000
+  #     - 13000:13000/tcp
+  #     - 12000:12000/udp
+  #     - 8551:8551
+  #   volumes:
+  #     - ./config/:/config
+  #     - ./beacon:/data
+
+  beacon:
+    container_name: beacon-chain
+    image: gcr.io/prysmaticlabs/prysm/beacon-chain:stable
+    restart: always
+    hostname: beacon-chain
+    depends_on:
+      - geth
+      - prysmctl
+    command: >
+      --accept-terms-of-use
+      --config-file=/config/beacon.yaml
+      --genesis-state=/config/uchain/genesis.ssz
+    environment:
+      - EXECUTION_ENDPOINT=http://geth:8546
+    ports:
+      - 4000:4000
+      - 13000:13000/tcp
+      - 12000:12000/udp
+      - 8551:8551
+    volumes:
+      - ./config:/config
+      - ./beacon:/data
+
+  wallet-initializer:
+    container_name: wallet-initializer
+    image: prysmaticlabs/prysm-validator:latest
+    hostname: wallet-initializer
+    command: wallet create --accept-terms-of-use --goerli --wallet-dir=/data/wallets --wallet-password-file=/data/passwords/wallet-password --keymanager-kind=imported
+    volumes:
+      - ./validator:/data
+
+  validator:
+    container_name: validator
+    image: gcr.io/prysmaticlabs/prysm/validator:stable
+    restart: always
+    hostname: validator
+    depends_on:
+      - beacon
+    command: >
+      --accept-terms-of-use
+      --wallet-dir=/data/wallets
+      --config-file=/config/validator.yaml
+    volumes:
+      - ./config:/config
+      - ./validator:/data
+
+  slasher:
+    container_name: slasher
+    image: gcr.io/prysmaticlabs/prysm/slasher:stable
+    restart: always
+    hostname: slasher
+    depends_on:
+      - beacon
+    command: >
+      --accept-terms-of-use
+      --config-file=/config/slasher.yaml
+    volumes:
+      - ./config:/config
+      - ./slasher:/data
+
+# Uncomment and adjust the following if using Prometheus and Grafana for monitoring
+# prometheus:
+#   container_name: prometheus
+#   image: prom/prometheus:v2.19.0
+#   restart: on-failure
+#   hostname: prometheus
+#   command: >
+#     --storage.tsdb.retention.time=31d
+#     --config.file=/etc/prometheus/prometheus.yml
+#   ports:
+#     - 9090:9090
+#   volumes:
+#     - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+#     - ./prometheus:/prometheus
+
+# grafana:
+#   container_name: grafana
+#   image: grafana/grafana:7.0.3
+#   restart: on-failure
+#   hostname: grafana
+#   depends_on:
+#     - prometheus
+#   ports:
+#     - 3000:3000
+#   volumes:
+#     - ./grafana/provisioning:/etc/grafana/provisioning
+#     - grafana_data:/var/lib/grafana
+
+# volumes:
+#   grafana_data:
